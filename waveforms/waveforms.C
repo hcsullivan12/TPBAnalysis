@@ -6,7 +6,7 @@ void waveforms() {
 	std::vector<std::string> files;
 	
 	///Read waveform files
-	std::string file = "./waveformFiles.txt";
+	std::string file = "./controlRun3acceptedWaveforms.txt";
 	std::ifstream fileFirst(file.c_str());
 	if (!fileFirst) {
 			std::cout << "Cannot open " << file << std::endl;
@@ -19,7 +19,7 @@ void waveforms() {
 	}
 	
 	
-	TFile *f = new TFile("./waveforms.root", "RECREATE");
+	TFile *f = new TFile("./controlRun3acceptedWaveforms.root", "RECREATE");
 	
 	for (int i = 0; i < files.size(); i++) {
 		
