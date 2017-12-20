@@ -2,9 +2,10 @@ std::string dataDirectory = "/home/hunter/Desktop/TPBTests/data";
 std::string outputWaveformFile = "./waveforms/waveformFiles.txt";
 double run2Time = 741; ///min
 double run3Time = 711; ///min 
-double controlTime = 128; ///min
+double controlTime = 743; ///min
+//double controlTime = 128; ///min  
 
-/*//Run2
+/*//Run2   
 int firstSiPMTrigger      = 15;
 int lastSiPMTrigger       = 983; 
 std::string PMT1Filename  = "/Run2/pmt1/M1pmt1_00000.txt";
@@ -17,9 +18,9 @@ int lastSiPMTrigger       = 981;
 std::string PMT1Filename  = "/Run3/pmt1/M1pmt_1_00000.txt";
 std::string PMT2Filename  = "/Run3/pmt2/M2pmt_2_00000.txt";
 std::string sipmFile      = "/Run3/sipm/C3sipm";
-std::string controlFile   = "/Run3/control/C3Control_3_SiPM_";
+std::string controlFile   = "/Run3/longercontrol/C3Control_3_SiPM_";
 int controlFirstSiPMTrigger     = 0;
-int controlLastSiPMTrigger       = 238; 
+int controlLastSiPMTrigger       = 1005; 
 
 ///Histogram parameters
 int controlAmplitudeDistributionBins = 1000;
@@ -37,6 +38,18 @@ double controlTimeDistMax = 0.00008;
 int controlMinBins = 100;
 double controlMinMin = -0.5;
 double controlMinMax = 0;
+
+int tpbMinDistBins = 100;
+double tpbMinDistMin = -1;
+double tpbMinDistMax = 0;
+
+int controlAreaDistributionBins = 100;
+double controlAreaDistributionMin = 0;
+double controlAreaDistributionMax = 1/(10.0);
+
+int tpbAreaDistributionBins = 100;
+double tpbAreaDistributionMin = 0;
+double tpbAreaDistributionMax = 1/(10.0);
 
 int timeDistBins   = 100;
 double timeDistMin = -0.00002;
@@ -147,7 +160,7 @@ void readData() {
 		}
 	}*/
 	
-	/*///
+	///
 	/// Amplitude distribution
 	///
 	
@@ -180,7 +193,7 @@ void readData() {
 			std::cout << "Cannot open " << filename << std::endl;
 		} else {
 			///Read file
-			//std::cout << "Reading trigger: " << trigger << std::endl;
+			std::cout << "Reading trigger: " << trigger << std::endl;
 			std::string word = "";
 			//std::vector<double > time;
 			//std::vector<double > voltage;
@@ -228,7 +241,7 @@ void readData() {
 	TH1D *controlWidthDist = new TH1D("controlWidthDist", "controlWidthDist", controlWidthDistributionBins, 
 											controlWidthDistributionMin, controlWidthDistributionMax);
 	
-	///Rising Edge threshold
+	///Rising Edge threshold*/
 	double threshRisingEdge = controlAmplitudeMean - discAmplitude*controlAmplitudeSigma;
 	
 	std::cout << "\nFinding control run width distribution...\n";
@@ -322,6 +335,9 @@ void readData() {
 	// with time and amplitude specified as a pair
 	std::vector< std::pair<double, double> > controlAllSiPMPeaks;
 	
+	TH1D *controlAreaDist = new TH1D("controlAreaDist", "controlAreaDist", controlAreaDistributionBins, 
+										controlAreaDistributionMin, controlAreaDistributionMax);
+	
 	///Already defined threshRisingEdge
 	///Width threshold to get rid of noise
 	//double threshWidth = 1/100000.0;//controlWidthMean + discWidth*controlWidthSigma;
@@ -376,6 +392,7 @@ void readData() {
 				if (v < threshRisingEdge) {
 					///Found start of pulse 
 					double tRisingEdge = t;
+					double area = 0;
 					min = v;
 					///Find falling edge or eof
 					while (v < threshRisingEdge && !fileSecond.eof()) {
@@ -383,6 +400,7 @@ void readData() {
 						std::getline(fileSecond, vTemp);
 						v = atof(vTemp.c_str());
 						t = atof(tTemp.c_str());
+						area = area + abs(v*(t - tRisingEdge));
 						if (v < min) min = v;
 					}
 					if (fileSecond.eof()) continue;
@@ -397,6 +415,8 @@ void readData() {
 						std::pair<double, double> p;
 						p = make_pair(tRisingEdge, min);
 						controlAllSiPMPeaks.push_back(p);
+						std::cout << area << std::endl;
+						controlAreaDist->Fill( area );
 					}
 				}
 			}
@@ -406,8 +426,13 @@ void readData() {
 	}
 	
 	TH1D *controlRisingTimeDist = new TH1D("controlRisingTimeDist", "controlRisingTimeDist", controlTimeDistBins, controlTimeDistMin, controlTimeDistMax);
-	for (auto it = allSiPMPeaks.begin(); it != allSiPMPeaks.end(); it++) {
+	for (auto it = controlAllSiPMPeaks.begin(); it != controlAllSiPMPeaks.end(); it++) {
 		controlRisingTimeDist->Fill( it->first );
+	}
+	///Divide hist by runtime
+	for (int bin = 1; bin <= controlRisingTimeDist->GetNbinsX(); bin++) {
+		double contentNormalized = controlRisingTimeDist->GetBinContent(bin)/controlTime;
+		controlRisingTimeDist->SetBinContent(bin, contentNormalized);
 	}
 	//TCanvas *c4 = new TCanvas("c4", "c4", 1000, 500);
 	std::string title1 = "Time of Rising Edge SiPM Pulse (Control Run " + RUN + ")";
@@ -415,8 +440,8 @@ void readData() {
 	//controlRisingTimeDist->Draw();
 	controlRisingTimeDist->Write();
 	
-	TH1D *controlMinDist = new TH1D("controlMinDist", "controlMinDist", controlMinBins, controlMinMin, controlMinMax);
-	for (auto it = allSiPMPeaks.begin(); it != allSiPMPeaks.end(); it++) {
+	TH1D *controlMinDist = new TH1D("controlMinDist", "controlMinDist", controlMinBins, tpbMinDistMin, tpbMinDistMax);
+	for (auto it = controlAllSiPMPeaks.begin(); it != controlAllSiPMPeaks.end(); it++) {
 		controlMinDist->Fill( it->second );
 	}
 	///Divide hist by runtime
@@ -431,6 +456,13 @@ void readData() {
 	//c5->SetLogy();
 	//minDist->Draw();
 	controlMinDist->Write();
+	
+	///Divide hist by runtime
+	for (int bin = 1; bin <= controlAreaDist->GetNbinsX(); bin++) {
+		double contentNormalized = controlAreaDist->GetBinContent(bin)/controlTime;
+		controlAreaDist->SetBinContent(bin, contentNormalized);
+	}
+	controlAreaDist->Write();
 	
 	///
 	/// Write filenames of waveforms of accepted pulses
@@ -516,7 +548,7 @@ void readData() {
 			fileSecond.close();
 		}
 	}
-	output.close();*/
+	output.close();
 	
 	//////////////////
 	// TPB RUN ///
@@ -604,6 +636,9 @@ void readData() {
 	///Width threshold to get rid of noise
 	//double threshWidth = 1/100000.0;//controlWidthMean + discWidth*controlWidthSigma;
 	
+	TH1D *tpbAreaDist = new TH1D("tpbAreaDist", "tpbAreaDist", tpbAreaDistributionBins, 
+										tpbAreaDistributionMin, tpbAreaDistributionMax);
+	
 	std::cout << "\nFinding all pulses in TPB run...\n";
 	
 	for (int trigger = firstSiPMTrigger; trigger <= lastSiPMTrigger; trigger++) {
@@ -633,7 +668,7 @@ void readData() {
 			std::vector<double > voltage;
 			double min = 0;
 			
-			//std::cout << "Reading trigger " << trigger << std::endl;
+			std::cout << "Reading trigger " << trigger << std::endl;
 			///Skip first text
 			while (word != "Time,Ampl") {
 				fileSecond >> word;
@@ -654,6 +689,7 @@ void readData() {
 				if (v < threshRisingEdge) {
 					///Found start of pulse 
 					double tRisingEdge = t;
+					double area = 0;
 					min = v;
 					///Find falling edge or eof
 					while (v < threshRisingEdge && !fileSecond.eof()) {
@@ -661,6 +697,7 @@ void readData() {
 						std::getline(fileSecond, vTemp);
 						v = atof(vTemp.c_str());
 						t = atof(tTemp.c_str());
+						area = area + abs(v*(t - tRisingEdge));
 						if (v < min) min = v;
 					}
 					if (fileSecond.eof()) continue;
@@ -675,6 +712,8 @@ void readData() {
 						std::pair<double, double> p;
 						p = make_pair(tRisingEdge, min);
 						tpbAllSiPMPeaks.push_back(p);
+						std::cout << area << std::endl;
+						tpbAreaDist->Fill( area );
 					}
 				}
 			}
@@ -687,13 +726,18 @@ void readData() {
 	for (auto it = tpbAllSiPMPeaks.begin(); it != tpbAllSiPMPeaks.end(); it++) {
 		tpbRisingTimeDist->Fill( it->first );
 	}
+	///Divide hist by runtime
+	for (int bin = 1; bin <= tpbRisingTimeDist->GetNbinsX(); bin++) {
+		double contentNormalized = tpbRisingTimeDist->GetBinContent(bin)/run3Time;
+		tpbRisingTimeDist->SetBinContent(bin, contentNormalized);
+	}
 	//TCanvas *c4 = new TCanvas("c4", "c4", 1000, 500);
-	std::string title1 = "Time of Rising Edge SiPM Pulse (TPB Run " + RUN + ")";
+	std::string title3 = "Time of Rising Edge SiPM Pulse (TPB Run " + RUN + ")";
 	tpbRisingTimeDist->SetTitle(title1.c_str());
 	//controlRisingTimeDist->Draw();
 	tpbRisingTimeDist->Write();
 	
-	TH1D *tpbMinDist = new TH1D("tpbMinDist", "tpbMinDist", controlMinBins, controlMinMin, controlMinMax);
+	TH1D *tpbMinDist = new TH1D("tpbMinDist", "tpbMinDist", tpbMinDistBins, tpbMinDistMin, tpbMinDistMax);
 	for (auto it = tpbAllSiPMPeaks.begin(); it != tpbAllSiPMPeaks.end(); it++) {
 		tpbMinDist->Fill( it->second );
 	}
@@ -703,14 +747,21 @@ void readData() {
 		tpbMinDist->SetBinContent(bin, contentNormalized);
 	}
 	//TCanvas *c5 = new TCanvas("c5", "c5", 1000, 500);
-	std::string title2 = "Minimum SiPM Amplitudes (TPB Run " + RUN + ")";
+	std::string title4 = "Minimum SiPM Amplitudes (TPB Run " + RUN + ")";
 	tpbMinDist->SetTitle(title2.c_str());
 	tpbMinDist->GetXaxis()->SetTitle("V");
 	//c5->SetLogy();
 	//minDist->Draw();
 	tpbMinDist->Write();
 	
-	///
+	///Divide hist by runtime
+	for (int bin = 1; bin <= tpbAreaDist->GetNbinsX(); bin++) {
+		double contentNormalized = tpbAreaDist->GetBinContent(bin)/run3Time;
+		tpbAreaDist->SetBinContent(bin, contentNormalized);
+	}
+	tpbAreaDist->Write();
+	
+	/*///
 	/// Write filenames of waveforms of accepted pulses
 	///
 	
@@ -746,7 +797,7 @@ void readData() {
 			double min = 0;
 			double minTime;
 			
-			//std::cout << "Reading Filename: " << filename << "\n" << std::endl;
+			//std::cout << "Reading trigger: " << trigger << "\n" << std::endl;
 			///Skip first text
 			while (word != "Time,Ampl") {
 				fileSecond >> word;
@@ -794,7 +845,7 @@ void readData() {
 			fileSecond.close();
 		}
 	}
-	tpbOutput.close();
+	tpbOutput.close();*/
 	
 	
 	
